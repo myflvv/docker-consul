@@ -1,0 +1,14 @@
+{
+	"id":"test4",
+	"name":"testss",
+	"tags":[
+		"v1",
+		"testee3"
+	],
+	"address":"http://testgitlab.loc",
+	"port":80,
+	"check":{
+		"http":"http://testgitlab.loc",
+		"interval":"10s"
+	}
+}

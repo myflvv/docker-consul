@@ -1,0 +1,105 @@
+version: "3"
+services:
+  consul1:
+    image: consul:latest
+    container_name: node1
+    command: agent -server -bootstrap-expect=3 -node=node1 -bind=0.0.0.0 -client=0.0.0.0 -datacenter=dc1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - consul-network
+
+  consul2:
+    image: consul:latest
+    container_name: node2
+    command: agent -server -retry-join=node1 -node=node2 -bind=0.0.0.0 -client=0.0.0.0 -datacenter=dc1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - consul-network
+
+  consul3:
+    image: consul:latest
+    container_name: node3
+    command: agent -server -retry-join=node1 -node=node3 -bind=0.0.0.0 -client=0.0.0.0 -datacenter=dc1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - consul-network
+
+  consul4:
+    image: consul:latest
+    container_name: node4
+    command: agent -retry-join=node1 -node=node4 -bind=0.0.0.0 -client=0.0.0.0 -datacenter=dc1 -ui
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8500:8500
+      - 8600:8600
+    networks:
+      - consul-network
+
+  kongdatabase:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=kong
+      - POSTGRES_DB=kong
+      - POSTGRES_PASSWORD=1q2w3e4r
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./kong_data:/var/lib/postgresql/data
+    networks:
+      - consul-network
+
+  kong-migrations:
+    networks:
+      - 'consul-network'
+    image: "kong:latest"
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kongdatabase
+      KONG_PG_PASSWORD: "1q2w3e4r"
+      KONG_PG_USER: kong
+      KONG_CASSANDRA_CONTACT_POINTS: kongdatabase
+    command: kong migrations bootstrap
+    links:
+      - kongdatabase
+
+  kong: 
+    image: kong:latest
+    environment:
+      KONG_DATABASE: "postgres"
+      KONG_PG_HOST: "kongdatabase"
+      KONG_PG_PASSWORD: "1q2w3e4r"
+      KONG_PG_USER: kong
+      KONG_CASSANDRA_CONTACT_POINTS: kongdatabase
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001,0.0.0.0:8444"
+      #KONG_DNS_RESOLVER: 172.19.0.4:8600 
+      KONG_LOG_LEVEL: debug
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8000:8000
+      - 8443:8443
+      - 8001:8001
+      - 8444:8444
+    networks:
+      - consul-network
+    links:
+      - kongdatabase
+  
+  konga:
+    image: pantsel/konga:latest
+    ports:
+      - 1337:1337
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - consul-network    
+    links:
+      - kong
+
+networks:
+  consul-network:
+    driver: bridge
